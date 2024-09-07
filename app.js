@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
+const categoryRoutes = require('./router/categoryRoutes');
 
 // Autoriser la lecture des objets au format JSON
 app.use(bodyParser.json());
@@ -18,5 +19,6 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/category', categoryRoutes);
 
 module.exports = app;
