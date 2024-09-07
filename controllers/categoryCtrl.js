@@ -1,15 +1,26 @@
 exports.newCategory = async (req, res, client) => {
   try {
-    // Inserer une nouvelle catégorie
+    // Insérer une nouvelle catégorie
     const query = {
       text: "INSERT INTO categories (name) VALUES ($1)",
       values: [req.body.name],
     };
 
     await client.query(query);
-    res.status(201).json({ message: "category created successfully" });
+
+    // Préparer la réponse
+    const responseData = {
+      message: "Category created successfully",
+    };
+
+    // Ajouter le nouveau token à la réponse si disponible
+    if (res.locals.newToken) {
+      responseData.token = res.locals.newToken;
+    }
+
+    res.status(201).json(responseData);
   } catch (error) {
-    console.error("Error insert new category :", error);
+    console.error("Error inserting new category:", error);
     res.status(500).json({ error: "Error inserting category" });
   }
 };
@@ -29,19 +40,30 @@ exports.getAllCategory = async (req, res, client) => {
 
 exports.updateCategory = async (req, res, client) => {
   try {
-    // mettre à jour une categorie
+    // Mettre à jour une catégorie
     const query = {
       text: "UPDATE categories SET name = $1 WHERE name = $2",
       values: [req.body.newName, req.body.oldName],
     };
 
+    // Exécuter la requête de mise à jour
     const result = await client.query(query);
-    // Si la catégorie n'est pas trouvée
-    if (result.rowCount === 0) {
-      res.status(404).json({ error: "Category not found" });
-    } else {
-      res.status(200).json({ message: "Category updated successfully" });
+
+    // Préparer la réponse
+    const responseData = {
+      message:
+        result.rowCount === 0
+          ? "Category not found"
+          : "Category updated successfully",
+    };
+
+    // Ajouter le nouveau token à la réponse si disponible
+    if (res.locals.newToken) {
+      responseData.token = res.locals.newToken;
     }
+
+    // Définir le code de statut approprié
+    res.status(result.rowCount === 0 ? 404 : 200).json(responseData);
   } catch (error) {
     console.error("Error updating category:", error);
     res.status(500).json({ error: "Error updating category" });
@@ -56,12 +78,28 @@ exports.deleteCategory = async (req, res, client) => {
       values: [req.body.name],
     };
 
-    await client.query(query);
-    res.status(201).json({ message: "category deleted successfully" });
+    // Exécuter la requête de suppression
+    const result = await client.query(query);
+
+    // Préparer la réponse
+    const responseData = {
+      message:
+        result.rowCount === 0
+          ? "Category not found"
+          : "Category deleted successfully",
+    };
+
+    // Ajouter le nouveau token à la réponse si disponible
+    if (res.locals.newToken) {
+      responseData.token = res.locals.newToken;
+    }
+
+    // Définir le code de statut approprié
+    res.status(result.rowCount === 0 ? 404 : 200).json(responseData);
   } catch (error) {
-    console.error(`Error deleted category (${req.body.name}) :`, error);
+    console.error(`Error deleting category (${req.body.name}) :`, error);
     res
       .status(500)
-      .json({ error: `Error deleted category : ${req.body.name}` });
+      .json({ error: `Error deleting category : ${req.body.name}` });
   }
 };

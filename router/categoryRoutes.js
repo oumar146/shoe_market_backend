@@ -6,12 +6,13 @@ const {
   getAllCategory,
   deleteCategory,
 } = require("../controllers/categoryCtrl");
+const auth = require("../middleware/auth");
 const client = require("../dataBase");
 
 //Routes
-router.post("/new", (req, res) => newCategory(req, res, client));
-router.get("/get", (req, res) => getAllCategory(req, res, client));
-router.put("/update", (req, res) => updateCategory(req, res, client));
-router.delete("/delete", (req, res) => deleteCategory(req, res, client));
+router.post("/new", auth, (req, res) => newCategory(req, res, client));
+router.get("/get", auth, (req, res) => getAllCategory(req, res, client));
+router.put("/update", auth, (req, res) => updateCategory(req, res, client));
+router.delete("/delete", auth, (req, res) => deleteCategory(req, res, client));
 
 module.exports = router;
