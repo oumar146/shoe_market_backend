@@ -6,13 +6,15 @@ const {
   getAllCategory,
   deleteCategory,
 } = require("../controllers/categoryCtrl");
+// Middleware pour l'authentification des utilisateurs
 const auth = require("../middleware/auth");
+// Connexion à la base de données
 const client = require("../dataBase");
 
-//Routes
-router.post("/new", auth, (req, res) => newCategory(req, res, client));
-router.get("/get", auth, (req, res) => getAllCategory(req, res, client));
-router.put("/update", auth, (req, res) => updateCategory(req, res, client));
-router.delete("/delete", auth, (req, res) => deleteCategory(req, res, client));
+// Routes pour les catégories
+router.post("/new", auth, (req, res) => newCategory(req, res, client)); // Créer une nouvelle catégorie
+router.get("/get", (req, res) => getAllCategory(req, res, client)); // Obtenir toutes les catégories
+router.put("/update", auth, (req, res) => updateCategory(req, res, client)); // Mettre à jour une catégorie
+router.delete("/delete", auth, (req, res) => deleteCategory(req, res, client)); // Supprimer une catégorie
 
 module.exports = router;

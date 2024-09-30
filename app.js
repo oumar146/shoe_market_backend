@@ -1,11 +1,14 @@
 const express = require("express");
 const app = express();
+const path = require("path"); // Gérer les chemins de fichiers
 const bodyParser = require("body-parser");
 const categoryRoutes = require("./router/categoryRoutes");
 const userRoutes = require("./router/userRoutes");
+const productRoutes = require("./router/productRoutes");
 
-// Autoriser la lecture des objets au format JSON
+// Activer la lecture des données JSON
 app.use(bodyParser.json());
+
 // Autoriser la communication avec d'autres serveurs
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -20,7 +23,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Routes pour utilisateurs, catégories et produits
 app.use("/user", userRoutes);
 app.use("/category", categoryRoutes);
+app.use("/product", productRoutes);
+
+// Servir les images depuis le dossier images
+app.use("/images", express.static(path.join(__dirname, "./images")));
 
 module.exports = app;
