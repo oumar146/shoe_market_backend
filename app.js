@@ -24,11 +24,14 @@ app.use((req, res, next) => {
 });
 
 // Routes pour utilisateurs, catégories et produits
-app.use("/user", userRoutes);
-app.use("/category", categoryRoutes);
-app.use("/product", productRoutes);
+// app.use("/user", userRoutes);
+// app.use("/category", categoryRoutes);
+// app.use("/product", productRoutes);
 
-// Servir les images depuis le dossier images
-app.use("/images", express.static(path.join(__dirname, "./images")));
+// // Servir les images depuis le dossier images
+// app.use("/images", express.static(path.join(__dirname, "./images")));
+app.get('/', (req, res) => {
+  res.send('Bienvenue sur mon API Node.js!');
+});
 
 module.exports = app;
