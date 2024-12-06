@@ -23,7 +23,7 @@ router.post(
   "/new",
   auth,
   multer, // Gère le téléchargement de fichiers
-  (req, res, next) => newProduct(req, res, next, client), // Créer un nouveau produit
+  (req, res, next) => newProductTest(req, res, next, client), // Créer un nouveau produit
   (req, res) => sendConfirmationEmail(req, res, client) // Envoyer un email de confirmation après la création
 );
 

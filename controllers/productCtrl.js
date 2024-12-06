@@ -4,6 +4,12 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 
+exports.newProductTest = async (req, res) => {
+  console.log("Reçu :", req.body, req.file);
+  res.status(200).json({ message: "Test réussi" });
+};
+
+
 exports.newProduct = async (req, res, next, client) => {
   try {
     const {
