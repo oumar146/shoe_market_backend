@@ -10,12 +10,12 @@ const {
 // Middleware pour l'authentification des utilisateurs
 const auth = require("../middleware/auth");
 // Connexion à la base de données
-// const client = require("../dataBase");
+const client = require("../dataBase");
 
 // Routes pour les catégories
 // router.post("/new", auth, (req, res) => newCategory(req, res, client)); // Créer une nouvelle catégorie
-// router.get("/get", (req, res) => getAllCategory(req, res,client)); // Obtenir toutes les catégories
-router.get("/get",(req, res) => {
+router.get("/get", (req, res) => getAllCategory(req, res,client)); // Obtenir toutes les catégories
+router.get("/test",(req, res) => {
   res.send('categorie ok ! ');
 });
 // router.put("/update", auth, (req, res) => updateCategory(req, res, client)); // Mettre à jour une catégorie
