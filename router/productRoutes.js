@@ -59,51 +59,19 @@
 
 const express = require("express");
 const router = express.Router();
-const supabase = require("../supabaseClient");
-const multer = require("../middleware/multer-config");
 const auth = require("../middleware/auth");
-const client = require("../dataBase");
-const { newProductTest, sendConfirmationEmail } = require("../controllers/productCtrl");
+const uploadMiddleware = require("../middleware/multer-config");
+const { newProductTest } = require("../controllers/productCtrl");
 
 router.post(
   "/new",
   auth,
-  multer,
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "Aucune image fournie." });
-      }
-
-      // Préparer les données pour Supabase
-      const file = req.file;
-      const uniqueName = `${Date.now()}-${file.originalname}`;
-      
-      const { data, error } = await supabase.storage
-        .from("images") // Remplace "images" par le nom de ton bucket
-        .upload(uniqueName, file.buffer, {
-          contentType: file.mimetype,
-        });
-
-      if (error) {
-        return res.status(500).json({ message: "Échec de l'upload d'image.", error });
-      }
-
-      // Générer l'URL publique
-      const { data: publicUrlData } = supabase.storage
-        .from("images")
-        .getPublicUrl(data.path);
-
-      // Appeler la logique de création de produit
-      await newProductTest(req, res, client, publicUrlData.publicUrl);
-
-      // Envoyer un email de confirmation
-      sendConfirmationEmail(req, res, client);
-
-    } catch (err) {
-      res.status(500).json({ message: "Erreur serveur", error: err.message });
-    }
+  uploadMiddleware, // Utilise le middleware Supabase
+  (req, res) => {
+    const imageUrl = req.fileUrl; // URL de l'image stockée sur Supabase
+    newProductTest(req, res, imageUrl);
   }
 );
 
 module.exports = router;
+

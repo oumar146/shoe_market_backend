@@ -23,8 +23,39 @@
 // module.exports = multer({ storage: storage }).single("image");
 
 const multer = require("multer");
+const supabase = require("../supabase"); // Importer la configuration Supabase
 
-// Configuration de stockage en mémoire (pas sur disque local)
-const storage = multer.memoryStorage();
+const uploadToSupabase = async (file) => {
+  const { data, error } = await supabase.storage
+    .from("produ-images")
+    .upload(`images/${Date.now()}_${file.originalname}`, file.buffer, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.mimetype,
+    });
 
-module.exports = multer({ storage }).single("image");
+  if (error) throw error;
+
+  const { publicUrl } = supabase.storage.from("product-images").getPublicUrl(data.path);
+  return publicUrl;
+};
+
+const storage = multer.memoryStorage(); // Stockage en mémoire pour Multer
+
+const multerConfig = multer({ storage }).single("image");
+
+const uploadMiddleware = (req, res, next) => {
+  multerConfig(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: "Erreur lors de l'upload" });
+
+    try {
+      const publicUrl = await uploadToSupabase(req.file);
+      req.fileUrl = publicUrl; // Enregistrer l'URL de l'image dans la requête
+      next();
+    } catch (error) {
+      res.status(500).json({ error: "Erreur lors de l'upload sur Supabase" });
+    }
+  });
+};
+
+module.exports = uploadMiddleware;
