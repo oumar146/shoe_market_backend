@@ -23,7 +23,7 @@
 // module.exports = multer({ storage: storage }).single("image");
 
 const multer = require("multer");
-const supabase = require("../supabase"); // Importer la configuration Supabase
+const supabase = require("../supabaseClient"); 
 
 const uploadToSupabase = async (file) => {
   const { data, error } = await supabase.storage
