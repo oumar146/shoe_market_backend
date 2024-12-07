@@ -72,7 +72,7 @@ router.post(
       const { file } = req;  // Le fichier téléchargé via multer
       const fileBuffer = file.buffer;  // Le contenu du fichier
       const fileName = `${file.originalname.split(' ').join('_')}-${Date.now()}`;  // Créer un nom unique pour le fichier
-      const bucketName = 'produ-images';  // Ton bucket Supabase
+      const bucketName = 'product-images';  // Ton bucket Supabase
 
       // Upload du fichier dans Supabase via S3
       const uploadResult = await uploadToS3(fileBuffer, fileName, bucketName);
