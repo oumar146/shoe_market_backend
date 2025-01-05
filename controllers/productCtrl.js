@@ -4,13 +4,7 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 
-exports.newProductTest = async (req, res,imageUrl) => {
-  console.log("Reçu :", req.body, imageUrl);
-  res.status(200).json({ message: "Test réussi" });
-};
-
-
-exports.newProduct = async (req, res, next, client) => {
+exports.newProduct = async (req, res, next, client, supabase) => {
   try {
     const {
       name,
@@ -23,9 +17,36 @@ exports.newProduct = async (req, res, next, client) => {
       email,
     } = req.body;
 
-    const image_url = req.file
-      ? `${req.protocol}://${req.get("host")}/images/${req.file.filename}`
-      : null;
+    let image_url = null;
+
+    // Upload de l'image sur Supabase
+    if (req.file) {
+      try {
+        const file = req.file;
+
+        // Générer un nom unique pour le fichier
+        const fileName = `${uuidv4()}-${file.originalname}`;
+        const bucketName = "product-images";
+
+        // Uploader l'image
+        const { data, error } = await supabase.storage
+          .from(bucketName)
+          .upload(fileName, file.buffer, {
+            cacheControl: "3600",
+            upsert: true,
+          });
+
+        if (error) {
+          throw new Error(`Erreur lors de l'upload de l'image: ${error.message}`);
+        }
+
+        // Générer l'URL publique
+        image_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucketName}/${fileName}`;
+      } catch (uploadError) {
+        console.error("Erreur lors de l'upload de l'image:", uploadError);
+        return res.status(500).json({ error: "Échec de l'upload de l'image" });
+      }
+    }
 
     // Vérifier si la catégorie existe
     const categoryQuery = {
@@ -59,23 +80,18 @@ exports.newProduct = async (req, res, next, client) => {
 
     const productResult = await client.query(productQuery);
 
-    // Préparer l'objet de réponse
-    const responseData = {
-      message: "Produit crée avec succès",
-      product: productResult.rows[0],
-    };
-
     // Ajouter les informations nécessaires pour l'envoi de l'e-mail à destination de l'utilisateur
     req.product = productResult.rows[0];
     req.email = email;
 
-    // res.status(201).json(responseData);
+    // Passer au middleware suivant
     next();
   } catch (error) {
-    console.error("Erreur lors de l'ajout du produit", error);
+    console.error("Erreur lors de l'ajout du produit:", error);
     res.status(500).json({ error: "Erreur lors de l'ajout du produit" });
   }
 };
+
 
 exports.getMyProducts = async (req, res, client) => {
   try {
@@ -121,14 +137,55 @@ exports.getProducts = async (req, res, client) => {
   }
 };
 
-exports.updateProduct = async (req, res, client) => {
+exports.updateProduct = async (req, res, client, supabase) => {
   try {
-    const { product_id, name, description, size, price, category_name } =
-      req.body;
+    const { product_id, name, description, size, price, category_name } = req.body;
+    let image_url = null;
 
-    const image_url = req.file
-      ? `${req.protocol}://${req.get("host")}/images/${req.file.filename}`
-      : null;
+    // Si une nouvelle image est téléchargée, l'uploader sur Supabase
+    if (req.file) {
+      const file = req.file;
+      const fileName = `${uuidv4()}-${file.originalname}`;
+      const bucketName = "product-images";
+
+      // Uploader l'image sur Supabase
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file.buffer, {
+          cacheControl: "3600",
+          upsert: true,
+        });
+
+      if (error) {
+        throw new Error(`Erreur lors de l'upload de l'image: ${error.message}`);
+      }
+
+      // Générer l'URL publique de l'image
+      image_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucketName}/${fileName}`;
+
+      // Supprimer l'ancienne image si nécessaire
+      const fetchOldImageQuery = {
+        text: "SELECT image_url FROM products WHERE id = $1",
+        values: [product_id],
+      };
+      const oldImageResult = await client.query(fetchOldImageQuery);
+
+      if (oldImageResult.rowCount > 0) {
+        const oldImageUrl = oldImageResult.rows[0].image_url;
+        const oldFileName = oldImageUrl.split(`${process.env.SUPABASE_URL}/storage/v1/object/public/product-images/`)[1];
+
+        const { error: deleteError } = await supabase.storage
+          .from(bucketName)
+          .remove([oldFileName]);
+
+        if (deleteError) {
+          console.error("Erreur lors de la suppression de l'ancienne image sur Supabase :", deleteError);
+        } else {
+          console.log("Ancienne image supprimée avec succès sur Supabase :", oldFileName);
+        }
+      }
+    }
+
     // Vérifier si la catégorie existe
     const categoryQuery = {
       text: "SELECT * FROM categories WHERE name = $1",
@@ -137,10 +194,10 @@ exports.updateProduct = async (req, res, client) => {
     const categoryResult = await client.query(categoryQuery);
 
     if (categoryResult.rowCount === 0) {
-      return res.status(404).json({ error: "Categorie non trouvée" });
+      return res.status(404).json({ error: "Catégorie non trouvée" });
     }
 
-    // Mettre à jour le produit
+    // Mettre à jour le produit dans la base de données
     const productQuery = {
       text: `UPDATE products 
              SET name = $1, description = $2, size = $3, price = $4, 
@@ -152,7 +209,7 @@ exports.updateProduct = async (req, res, client) => {
         size,
         price,
         category_name,
-        image_url,
+        image_url,  // L'URL de l'image est mise à jour avec celle de Supabase si une nouvelle image a été téléchargée
         product_id,
       ],
     };
@@ -177,11 +234,14 @@ exports.updateProduct = async (req, res, client) => {
   }
 };
 
-exports.deleteProduct = async (req, res, client) => {
+
+
+
+exports.deleteProduct = async (req, res, client, supabase) => {
   try {
     const { product_id: productId } = req.body;
 
-    // Récupérer le chemin de l'image à partir de la base de données
+    // Récupérer l'URL de l'image à partir de la base de données
     const fetchImagePathQuery = {
       text: "SELECT image_url FROM products WHERE id = $1",
       values: [productId],
@@ -192,8 +252,7 @@ exports.deleteProduct = async (req, res, client) => {
       return res.status(404).json({ message: "Produit non trouvé" });
     }
 
-    const imageUrl = imageResult.rows[0].image_url; // http://localhost:4100/images/nom_du_fichier.extension
-    const relativeImagePath = imageUrl.replace("http://localhost:4100/", ""); // images/nom_du_fichier.extension
+    const imageUrl = imageResult.rows[0].image_url;
 
     // Supprimer le produit de la base de données
     const deleteProductQuery = {
@@ -202,24 +261,23 @@ exports.deleteProduct = async (req, res, client) => {
     };
     const deleteResult = await client.query(deleteProductQuery);
 
-    // Si le produit a été supprimé, supprimer l'image du serveur
-    if (deleteResult.rowCount > 0 && relativeImagePath) {
-      const baseDirPath = path.join(__dirname, "../"); // C:\PROJET_GITHUB\shoe_market_backend\
-      const fullImagePath = path.join(baseDirPath, relativeImagePath); // C:\PROJET_GITHUB\shoe_market_backend\images/nom_du_fichier.extension
+    // Supprimer l'image de Supabase si le produit a été supprimé
+    if (deleteResult.rowCount > 0 && imageUrl) {
+      const bucketName = "product-images"; // Nom du bucket Supabase
+      const fileName = imageUrl.split(`${process.env.SUPABASE_URL}/storage/v1/object/public/${bucketName}/`)[1];
 
-      fs.unlink(fullImagePath, (err) => {
-        if (err) {
-          console.error(
-            "Erreur lors de la suppression du fichier image :",
-            err
-          );
-        } else {
-          console.log("Image supprimée avec succès :", fullImagePath);
-        }
-      });
+      const { error: deleteError } = await supabase.storage
+        .from(bucketName)
+        .remove([fileName]);
+
+      if (deleteError) {
+        console.error("Erreur lors de la suppression de l'image sur Supabase :", deleteError);
+      } else {
+        console.log("Image supprimée avec succès sur Supabase :", fileName);
+      }
     }
 
-    // 4. Préparer la réponse
+    // Préparer la réponse
     const responseData = {
       message:
         deleteResult.rowCount === 0
@@ -232,7 +290,6 @@ exports.deleteProduct = async (req, res, client) => {
       responseData.token = res.locals.newToken;
     }
 
-    // Définir le code de statut approprié
     res.status(deleteResult.rowCount === 0 ? 404 : 200).json(responseData);
   } catch (error) {
     console.error(
@@ -244,6 +301,7 @@ exports.deleteProduct = async (req, res, client) => {
     });
   }
 };
+
 
 exports.sendConfirmationEmail = async (req, res) => {
   const { email } = req;

@@ -6,19 +6,17 @@ const TYPES_DE_FICHIERS = {
   "image/png": "png",
 };
 
-const storage = multer.diskStorage({
-  // Déterminer le répertoire où le fichier sera stocké.
-  destination: (req, file, callback) => {
-    callback(null, "images");
-  },
-  // Génèrer le nom du fichier qui sera enregistré sur le serveur
-  filename: (req, file, callback) => {
-    // Supprime l'extension et remplace les espaces par des underscores
-    const name = file.originalname.split(" ").join("_").split(".")[0];
-    const extension = TYPES_DE_FICHIERS[file.mimetype];
-    callback(null, name + Date.now() + "." + extension);
-  },
-});
+// Utilisation du stockage en mémoire
+const storage = multer.memoryStorage();
 
-module.exports = multer({ storage: storage }).single("image");
+
+module.exports = multer({
+  storage,
+  fileFilter: (req, file, callback) => {
+    if (!TYPES_DE_FICHIERS[file.mimetype]) {
+      return callback(new Error("Seules les images JPG, JPEG et PNG sont acceptées"));
+    }
+    callback(null, true);
+  },
+}).single("image");
 

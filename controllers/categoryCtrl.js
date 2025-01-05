@@ -34,7 +34,6 @@ exports.newCategory = async (req, res, client) => {
 
 exports.getAllCategory = async (req, res, client) => {
   try {
-    console.log(2)
     // Récupérer toutes les catégories
     const query = { text: "SELECT * FROM categories" };
     const response = await client.query(query);

@@ -28,8 +28,7 @@ app.use("/user", userRoutes);
 app.use("/category", categoryRoutes);
 app.use("/product", productRoutes);
 
-// Servir les images depuis le dossier images
-app.use("/images", express.static(path.join(__dirname, "./images")));
+
 app.get("/",(req, res) => {
   res.send('Bienvenue sur mon API Node.js!');
 });
