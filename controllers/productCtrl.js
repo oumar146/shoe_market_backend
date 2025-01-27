@@ -1,8 +1,7 @@
 const nodemailer = require("nodemailer");
 const { v4: uuidv4 } = require("uuid");
 require("dotenv").config();
-const fs = require("fs");
-const path = require("path");
+
 
 exports.newProduct = async (req, res, next, client, supabase) => {
   try {
@@ -10,12 +9,15 @@ exports.newProduct = async (req, res, next, client, supabase) => {
       name,
       description,
       creation_date,
-      size,
+      gender_name,
       price,
       creator_id,
       category_name,
       email,
+      sizes, // Liste des tailles à insérer
     } = req.body;
+
+    console.log(req.body);
 
     let image_url = null;
 
@@ -37,7 +39,9 @@ exports.newProduct = async (req, res, next, client, supabase) => {
           });
 
         if (error) {
-          throw new Error(`Erreur lors de l'upload de l'image: ${error.message}`);
+          throw new Error(
+            `Erreur lors de l'upload de l'image: ${error.message}`
+          );
         }
 
         // Générer l'URL publique
@@ -61,17 +65,17 @@ exports.newProduct = async (req, res, next, client, supabase) => {
 
     // Générer une référence unique pour le produit avec UUID
     const reference = uuidv4();
-
+    
     // Insérer un nouveau produit avec la référence
     const productQuery = {
-      text: "INSERT INTO products (name, description, creation_date, size, price, creator_id, category_name, image_url, reference) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
+      text: "INSERT INTO products (name, description, creation_date, gender_name, price, creator_id, category_name, image_url, reference) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
       values: [
         name,
         description,
         creation_date,
-        size,
+        gender_name,
         price,
-        creator_id,
+        creator_id, // Assurez-vous que creator_id est correctement récupéré
         category_name,
         image_url,
         reference,
@@ -79,6 +83,23 @@ exports.newProduct = async (req, res, next, client, supabase) => {
     };
 
     const productResult = await client.query(productQuery);
+    const productId = productResult.rows[0].id;
+
+    // Vérifier si des tailles sont spécifiées
+    if (sizes && sizes.length > 0) {
+      // Créer les requêtes pour insérer chaque taille pour ce produit
+      const insertStockQueries = sizes.map(size => {
+        return {
+          text: "INSERT INTO stock (product_id, size_fk, quantity) VALUES ($1, $2, 0)",
+          values: [productId, size], // Utilisation de la taille directement comme valeur numérique
+        };
+      });
+
+      // Exécuter toutes les requêtes d'insertion des tailles
+      for (let query of insertStockQueries) {
+        await client.query(query);
+      }
+    }
 
     // Ajouter les informations nécessaires pour l'envoi de l'e-mail à destination de l'utilisateur
     req.product = productResult.rows[0];
@@ -91,7 +112,6 @@ exports.newProduct = async (req, res, next, client, supabase) => {
     res.status(500).json({ error: "Erreur lors de l'ajout du produit" });
   }
 };
-
 
 exports.getMyProducts = async (req, res, client) => {
   try {
@@ -112,13 +132,168 @@ exports.getMyProducts = async (req, res, client) => {
   }
 };
 
+exports.getSizes = async (req, res, client) => {
+  try {
+    // Récupérer tous les produits
+    const query = {
+      text: `
+        SELECT 
+          size
+        FROM sizes 
+      `,
+    };
+
+    const response = await client.query(query);
+    const sizes = response.rows.map(row => row.size); // Extraire seulement les tailles
+    res.status(200).json({ sizes });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des tailles", error);
+    res
+      .status(500)
+      .json({ error: "Erreur lors de la récupération des tailles" });
+  }
+};
+
+exports.getGenders = async (req, res, client) => {
+  try {
+    // Récupérer tous les produits
+    const query = {
+      text: `
+        SELECT 
+          *
+        FROM gender 
+      `,
+    };
+
+    const response = await client.query(query);
+    const genders = response.rows;
+    const tabgenders = genders.map((gender)=>  gender.gender_name)
+    res.status(200).json({genders :  tabgenders });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des genres", error);
+    res
+      .status(500)
+      .json({ error: "Erreur lors de la récupération des genres" });
+  }
+};
+
+exports.getStockProducts = async (req, res, client) => {
+  try {
+    // Récupérer tous les produits avec les informations sur le stock
+    const query = {
+      text: `
+        SELECT 
+          products.id AS product_id, 
+          products.name AS product_name, 
+          products.description, 
+          products.creation_date, 
+          products.price, 
+          products.category_name, 
+          products.image_url, 
+          products.gender_name,
+          products.reference, 
+          users.id AS creator_id, 
+          users.first_name AS creator_name, 
+          users.email AS creator_email,
+          stock.size_fk, 
+          stock.quantity
+        FROM products 
+        JOIN users ON products.creator_id = users.id
+        LEFT JOIN stock ON products.id = stock.product_id
+      `,
+    };
+    
+    const response = await client.query(query);
+    const products = response.rows;
+
+    // Organiser les tailles et quantités dans un tableau d'objets
+    const formattedProducts = products.reduce((acc, product) => {
+      // Vérifier si le produit existe déjà dans l'accumulateur
+      let existingProduct = acc.find(p => p.product_id === product.product_id);
+      if (!existingProduct) {
+        // Si le produit n'existe pas, ajouter une nouvelle entrée
+        existingProduct = {
+          ...product,
+          stock: [] // Créer un tableau de stock vide
+        };
+        acc.push(existingProduct);
+      }
+
+      // Ajouter un objet stock avec la taille et la quantité associée
+      existingProduct.stock.push({
+        size: product.size_fk,
+        quantity: product.quantity || 0 // S'assurer que quantity est défini même si elle est nulle
+      });
+
+      return acc;
+    }, []);
+
+    // Supprimer les informations `size_fk` et `quantity` du produit principal
+    const cleanedProducts = formattedProducts.map(product => {
+      const { size_fk, quantity, ...productWithoutStock } = product;
+      return productWithoutStock;
+    });
+
+    res.status(200).json({ products: cleanedProducts });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des produits", error);
+    res.status(500).json({ error: "Erreur lors de la récupération des produits" });
+  }
+};
+
+exports.updateStockQuantity = async (req, res, client) => {
+  try {
+    const { productId, size_fk, quantity } = req.body;
+    console.log(req.body)
+
+    // Vérifier que tous les champs requis sont présents
+    if (!productId || !size_fk || quantity === undefined) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Mise à jour de la quantité dans le stock
+    const query = {
+      text: `
+        UPDATE stock
+        SET quantity = $1
+        WHERE product_id = $2 AND size_fk = $3
+        RETURNING *;
+      `,
+      values: [quantity, productId, size_fk],
+    };
+
+    const result = await client.query(query);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Stock entry not found" });
+    }
+
+    return res.status(200).json({
+      message: "Stock quantity updated successfully",
+      stock: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Error updating stock quantity:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 exports.getProducts = async (req, res, client) => {
   try {
     // Récupérer tous les produits
     const query = {
       text: `
         SELECT 
-          *, 
+          products.id AS product_id, 
+          products.name AS product_name, 
+          products.description, 
+          products.creation_date, 
+          products.price, 
+          products.category_name, 
+          products.image_url, 
+          products.gender_name,
+          products.reference, 
+          users.id AS creator_id, 
           users.first_name AS creator_name, 
           users.email AS creator_email 
         FROM products 
@@ -139,9 +314,10 @@ exports.getProducts = async (req, res, client) => {
 
 exports.updateProduct = async (req, res, client, supabase) => {
   try {
-    const { product_id, name, description, size, price, category_name } = req.body;
+    const { product_id, name, description, gender_name, price, category_name } =
+      req.body;
     let image_url = null;
-
+    console.log(gender_name)
     // Si une nouvelle image est téléchargée, l'uploader sur Supabase
     if (req.file) {
       const file = req.file;
@@ -172,16 +348,24 @@ exports.updateProduct = async (req, res, client, supabase) => {
 
       if (oldImageResult.rowCount > 0) {
         const oldImageUrl = oldImageResult.rows[0].image_url;
-        const oldFileName = oldImageUrl.split(`${process.env.SUPABASE_URL}/storage/v1/object/public/product-images/`)[1];
+        const oldFileName = oldImageUrl.split(
+          `${process.env.SUPABASE_URL}/storage/v1/object/public/product-images/`
+        )[1];
 
         const { error: deleteError } = await supabase.storage
           .from(bucketName)
           .remove([oldFileName]);
 
         if (deleteError) {
-          console.error("Erreur lors de la suppression de l'ancienne image sur Supabase :", deleteError);
+          console.error(
+            "Erreur lors de la suppression de l'ancienne image sur Supabase :",
+            deleteError
+          );
         } else {
-          console.log("Ancienne image supprimée avec succès sur Supabase :", oldFileName);
+          console.log(
+            "Ancienne image supprimée avec succès sur Supabase :",
+            oldFileName
+          );
         }
       }
     }
@@ -200,16 +384,16 @@ exports.updateProduct = async (req, res, client, supabase) => {
     // Mettre à jour le produit dans la base de données
     const productQuery = {
       text: `UPDATE products 
-             SET name = $1, description = $2, size = $3, price = $4, 
+             SET name = $1, description = $2, gender_name = $3, price = $4, 
                  category_name = $5, image_url = COALESCE($6, image_url)
              WHERE id = $7`,
       values: [
         name,
         description,
-        size,
+        gender_name,
         price,
         category_name,
-        image_url,  // L'URL de l'image est mise à jour avec celle de Supabase si une nouvelle image a été téléchargée
+        image_url, // L'URL de l'image est mise à jour avec celle de Supabase si une nouvelle image a été téléchargée
         product_id,
       ],
     };
@@ -234,9 +418,6 @@ exports.updateProduct = async (req, res, client, supabase) => {
   }
 };
 
-
-
-
 exports.deleteProduct = async (req, res, client, supabase) => {
   try {
     const { product_id: productId } = req.body;
@@ -254,6 +435,13 @@ exports.deleteProduct = async (req, res, client, supabase) => {
 
     const imageUrl = imageResult.rows[0].image_url;
 
+    // Supprimer d'abord les entrées associées dans la table stock
+    const deleteStockQuery = {
+      text: "DELETE FROM stock WHERE product_id = $1",
+      values: [productId],
+    };
+    await client.query(deleteStockQuery);
+
     // Supprimer le produit de la base de données
     const deleteProductQuery = {
       text: "DELETE FROM products WHERE id = $1",
@@ -264,14 +452,19 @@ exports.deleteProduct = async (req, res, client, supabase) => {
     // Supprimer l'image de Supabase si le produit a été supprimé
     if (deleteResult.rowCount > 0 && imageUrl) {
       const bucketName = "product-images"; // Nom du bucket Supabase
-      const fileName = imageUrl.split(`${process.env.SUPABASE_URL}/storage/v1/object/public/${bucketName}/`)[1];
+      const fileName = imageUrl.split(
+        `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucketName}/`
+      )[1];
 
       const { error: deleteError } = await supabase.storage
         .from(bucketName)
         .remove([fileName]);
 
       if (deleteError) {
-        console.error("Erreur lors de la suppression de l'image sur Supabase :", deleteError);
+        console.error(
+          "Erreur lors de la suppression de l'image sur Supabase :",
+          deleteError
+        );
       } else {
         console.log("Image supprimée avec succès sur Supabase :", fileName);
       }
@@ -282,7 +475,7 @@ exports.deleteProduct = async (req, res, client, supabase) => {
       message:
         deleteResult.rowCount === 0
           ? "Produit non trouvé"
-          : "Produit et image associée supprimés avec succès",
+          : "Produit, stock et image associés supprimés avec succès",
     };
 
     // Ajouter un nouveau token à la réponse, s'il existe

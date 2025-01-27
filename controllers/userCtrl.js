@@ -108,3 +108,19 @@ exports.tokenCheck = async (req, res, client) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
+exports.getAllUsers = async (req, res, client) => {
+  try {
+
+    // Création d'un nouveau utilisateur
+    const query = { text: "SELECT first_name, last_name, email, id, phone FROM users" };
+    const users = await client.query(query);
+    res.status(200).json({ users: users.rows });
+  } catch (error) {
+    console.error("Erreur d'inscription :", error);
+    res
+      .status(500)
+      .json({ error: "Erreur lors de l'inscription de l'utilisateur" });
+  }
+};

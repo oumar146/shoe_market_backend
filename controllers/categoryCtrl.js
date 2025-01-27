@@ -50,22 +50,43 @@ exports.getAllCategory = async (req, res, client) => {
 exports.updateCategory = async (req, res, client) => {
   try {
     const { oldName, newName } = req.body;
+    console.log("oldName :", oldName, "newName :", newName);
 
-    // Mettre à jour une catégorie
-    const query = {
-      text: "UPDATE categories SET name = $1 WHERE name = $2",
+    // Démarrer une transaction
+    await client.query("BEGIN");
+
+    // Ajouter la nouvelle catégorie si elle n'existe pas déjà
+    const addCategoryResult = await client.query({
+      text: "INSERT INTO categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING",
+      values: [newName],
+    });
+
+    if (addCategoryResult.rowCount === 0) {
+      console.log("La catégorie existe déjà");
+    }
+
+    // Mettre à jour les produits pour utiliser la nouvelle catégorie
+    const updateProductsResult = await client.query({
+      text: "UPDATE products SET category_name = $1 WHERE category_name = $2",
       values: [newName, oldName],
-    };
+    });
 
-    // Exécuter la requête de mise à jour
-    const result = await client.query(query);
+    // Supprimer l'ancienne catégorie
+    const deleteOldCategoryResult = await client.query({
+      text: "DELETE FROM categories WHERE name = $1",
+      values: [oldName],
+    });
+
+    // Valider la transaction
+    await client.query("COMMIT");
 
     // Préparer la réponse
     const responseData = {
-      message:
-        result.rowCount === 0
-          ? "Catégorie non trouvée"
-          : "Catégorie mise à jour avec succès",
+      message: "Catégorie mise à jour avec succès",
+      details: {
+        productsUpdated: updateProductsResult.rowCount,
+        oldCategoryDeleted: deleteOldCategoryResult.rowCount > 0,
+      },
     };
 
     // Ajouter le nouveau token à la réponse si disponible
@@ -73,9 +94,11 @@ exports.updateCategory = async (req, res, client) => {
       responseData.token = res.locals.newToken;
     }
 
-    // Définir le code de statut approprié
-    res.status(result.rowCount === 0 ? 404 : 200).json(responseData);
+    // Envoyer la réponse
+    res.status(200).json(responseData);
   } catch (error) {
+    // Annuler la transaction en cas d'erreur
+    await client.query("ROLLBACK");
     console.error("Erreur lors de la mise à jour de la catégorie :", error);
     res
       .status(500)
@@ -86,6 +109,7 @@ exports.updateCategory = async (req, res, client) => {
 exports.deleteCategory = async (req, res, client) => {
   try {
     const { name } = req.body;
+    console.log(req.body);
 
     // Supprimer une catégorie
     const query = {

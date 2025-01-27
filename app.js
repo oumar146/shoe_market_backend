@@ -4,7 +4,8 @@ const path = require("path"); // Gérer les chemins de fichiers
 const bodyParser = require("body-parser");
 const categoryRoutes = require("./router/categoryRoutes");
 const userRoutes = require("./router/userRoutes");
-const productRoutes = require("./router/productRoutes");
+const productRoutes =  require("./router/productRoutes");
+const ordersRoutes = require("./router/ordersRoutes");
 
 // Activer la lecture des données JSON
 app.use(bodyParser.json());
@@ -27,6 +28,7 @@ app.use((req, res, next) => {
 app.use("/user", userRoutes);
 app.use("/category", categoryRoutes);
 app.use("/product", productRoutes);
+app.use("/order", ordersRoutes);
 
 
 app.get("/",(req, res) => {
