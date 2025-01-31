@@ -6,6 +6,8 @@ const categoryRoutes = require("./router/categoryRoutes");
 const userRoutes = require("./router/userRoutes");
 const productRoutes =  require("./router/productRoutes");
 const ordersRoutes = require("./router/ordersRoutes");
+const favoriteRoutes = require("./router/favoritesRoutes");
+const cartRoutes = require("./router/cartRoutes");
 
 // Activer la lecture des données JSON
 app.use(bodyParser.json());
@@ -29,7 +31,8 @@ app.use("/user", userRoutes);
 app.use("/category", categoryRoutes);
 app.use("/product", productRoutes);
 app.use("/order", ordersRoutes);
-
+app.use("/favorite", favoriteRoutes);
+app.use("/cart", cartRoutes);
 
 app.get("/",(req, res) => {
   res.send('Bienvenue sur mon API Node.js!');

@@ -6,6 +6,9 @@ const supabase = require("../supabaseClient");
 const {
   newProduct,
   getMyProducts,
+  getMenProducts,
+  getWomenProducts,
+  getUnisexProducts,
   getSizes,
   getGenders,
   getStockProducts,
@@ -49,6 +52,10 @@ router.post(
 );
 
 router.get("/offers", (req, res) => getProducts(req, res, client)); // Obtenir tous les produits disponibles
+router.get("/men", (req, res) => getMenProducts(req, res, client)); // Obtenir tous les produits disponibles pour les Homme
+router.get("/women", (req, res) => getWomenProducts(req, res, client)); // Obtenir tous les produits disponibles pour les Femmes
+router.get("/unisex", (req, res) => getUnisexProducts(req, res, client)); // Obtenir tous les produits disponibles pour les Femmes
+
 router.get("/sizes", (req, res) => getSizes(req, res, client)); // Obtenir tous les produits disponibles
 router.get("/genders", (req, res) => getGenders(req, res, client)); // Obtenir tous les produits disponibles
 router.get("/stock", (req, res) => getStockProducts(req, res, client)); // Obtenir tous les produits disponibles

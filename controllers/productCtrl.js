@@ -283,6 +283,36 @@ exports.getProducts = async (req, res, client) => {
     // Récupérer tous les produits
     const query = {
       text: `
+ SELECT 
+  id AS product_id, 
+  name AS product_name, 
+  description, 
+  creation_date, 
+  price, 
+  category_name, 
+  image_url, 
+  gender_name,
+  reference
+FROM products;
+      `,
+    };
+
+    const response = await client.query(query);
+    const products = response.rows;
+    res.status(200).json({ products });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des produits", error);
+    res
+      .status(500)
+      .json({ error: "Erreur lors de la récupération des produits" });
+  }
+};
+
+exports.getMenProducts = async (req, res, client) => {
+  try {
+    // Récupérer tous les produits
+    const query = {
+      text: `
         SELECT 
           products.id AS product_id, 
           products.name AS product_name, 
@@ -298,8 +328,79 @@ exports.getProducts = async (req, res, client) => {
           users.email AS creator_email 
         FROM products 
         JOIN users ON products.creator_id = users.id
+        WHERE products.gender_name IN ('Homme', 'Unisex')
       `,
-    };
+    };    
+
+    const response = await client.query(query);
+    const products = response.rows;
+    res.status(200).json({ products });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des produits", error);
+    res
+      .status(500)
+      .json({ error: "Erreur lors de la récupération des produits" });
+  }
+};
+
+exports.getWomenProducts = async (req, res, client) => {
+  try {
+    // Récupérer tous les produits
+    const query = {
+      text: `
+        SELECT 
+          products.id AS product_id, 
+          products.name AS product_name, 
+          products.description, 
+          products.creation_date, 
+          products.price, 
+          products.category_name, 
+          products.image_url, 
+          products.gender_name,
+          products.reference, 
+          users.id AS creator_id, 
+          users.first_name AS creator_name, 
+          users.email AS creator_email 
+        FROM products 
+        JOIN users ON products.creator_id = users.id
+        WHERE products.gender_name IN ('Femme', 'Unisex')
+      `,
+    };    
+
+    const response = await client.query(query);
+    const products = response.rows;
+    res.status(200).json({ products });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des produits", error);
+    res
+      .status(500)
+      .json({ error: "Erreur lors de la récupération des produits" });
+  }
+};
+
+exports.getUnisexProducts = async (req, res, client) => {
+  try {
+    // Récupérer tous les produits
+    const query = {
+      text: `
+        SELECT 
+          products.id AS product_id, 
+          products.name AS product_name, 
+          products.description, 
+          products.creation_date, 
+          products.price, 
+          products.category_name, 
+          products.image_url, 
+          products.gender_name,
+          products.reference, 
+          users.id AS creator_id, 
+          users.first_name AS creator_name, 
+          users.email AS creator_email 
+        FROM products 
+        JOIN users ON products.creator_id = users.id
+        WHERE products.gender_name = 'Unisex'
+      `,
+    };    
 
     const response = await client.query(query);
     const products = response.rows;
