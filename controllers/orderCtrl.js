@@ -6,6 +6,7 @@ exports.getAllOrders = async (req, res, client) => {
 SELECT 
     orders.id AS order_id,
     orders.user_id,
+        orders.reference,
     users.email AS user_email,
     users.phone AS user_phone,
     products.id AS product_id,
