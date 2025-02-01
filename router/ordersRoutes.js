@@ -5,7 +5,8 @@ const {
   // updateCategory,
   getAllOrders,
   getAllStatus,
-  updateOrderStatus
+  updateOrderStatus,
+  createOrder
   // deleteCategory,
 } = require("../controllers/orderCtrl");
 // Middleware pour l'authentification des utilisateurs
@@ -18,6 +19,8 @@ const client = require("../dataBase");
 router.get("/all", (req, res) => getAllOrders(req, res,client)); // Obtenir toutes les catégories
 router.get("/status", (req, res) => getAllStatus(req, res,client)); // Obtenir toutes les catégories
 router.put("/update", (req, res) => updateOrderStatus(req, res, client)); // Mettre à jour une catégorie
+router.post("/new", (req, res) => createOrder(req, res, client)); // Mettre à jour une catégorie
+
 // router.delete("/delete", (req, res) => deleteCategory(req, res, client)); // Supprimer une catégorie
 
 module.exports = router;

@@ -47,9 +47,10 @@ exports.getCart = async (req, res, client) => {
 exports.removeFromCart = async (req, res, client) => {
   try {
     const { user_id, cart_id } = req.body;
+    console.log(req.body)
 
     const query = {
-      text: "DELETE FROM cart WHERE user_id = $1 AND id = $2",
+      text: "DELETE FROM cart WHERE user_id = $1 AND product_id = $2",
       values: [user_id, cart_id],
     };
 

@@ -2,7 +2,6 @@ const nodemailer = require("nodemailer");
 const { v4: uuidv4 } = require("uuid");
 require("dotenv").config();
 
-
 exports.newProduct = async (req, res, next, client, supabase) => {
   try {
     const {
@@ -65,7 +64,7 @@ exports.newProduct = async (req, res, next, client, supabase) => {
 
     // Générer une référence unique pour le produit avec UUID
     const reference = uuidv4();
-    
+
     // Insérer un nouveau produit avec la référence
     const productQuery = {
       text: "INSERT INTO products (name, description, creation_date, gender_name, price, creator_id, category_name, image_url, reference) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
@@ -88,7 +87,7 @@ exports.newProduct = async (req, res, next, client, supabase) => {
     // Vérifier si des tailles sont spécifiées
     if (sizes && sizes.length > 0) {
       // Créer les requêtes pour insérer chaque taille pour ce produit
-      const insertStockQueries = sizes.map(size => {
+      const insertStockQueries = sizes.map((size) => {
         return {
           text: "INSERT INTO stock (product_id, size_fk, quantity) VALUES ($1, $2, 0)",
           values: [productId, size], // Utilisation de la taille directement comme valeur numérique
@@ -144,7 +143,7 @@ exports.getSizes = async (req, res, client) => {
     };
 
     const response = await client.query(query);
-    const sizes = response.rows.map(row => row.size); // Extraire seulement les tailles
+    const sizes = response.rows.map((row) => row.size); // Extraire seulement les tailles
     res.status(200).json({ sizes });
   } catch (error) {
     console.error("Erreur lors de la récupération des tailles", error);
@@ -167,8 +166,8 @@ exports.getGenders = async (req, res, client) => {
 
     const response = await client.query(query);
     const genders = response.rows;
-    const tabgenders = genders.map((gender)=>  gender.gender_name)
-    res.status(200).json({genders :  tabgenders });
+    const tabgenders = genders.map((gender) => gender.gender_name);
+    res.status(200).json({ genders: tabgenders });
   } catch (error) {
     console.error("Erreur lors de la récupération des genres", error);
     res
@@ -202,19 +201,21 @@ exports.getStockProducts = async (req, res, client) => {
         LEFT JOIN stock ON products.id = stock.product_id
       `,
     };
-    
+
     const response = await client.query(query);
     const products = response.rows;
 
     // Organiser les tailles et quantités dans un tableau d'objets
     const formattedProducts = products.reduce((acc, product) => {
       // Vérifier si le produit existe déjà dans l'accumulateur
-      let existingProduct = acc.find(p => p.product_id === product.product_id);
+      let existingProduct = acc.find(
+        (p) => p.product_id === product.product_id
+      );
       if (!existingProduct) {
         // Si le produit n'existe pas, ajouter une nouvelle entrée
         existingProduct = {
           ...product,
-          stock: [] // Créer un tableau de stock vide
+          stock: [], // Créer un tableau de stock vide
         };
         acc.push(existingProduct);
       }
@@ -222,14 +223,14 @@ exports.getStockProducts = async (req, res, client) => {
       // Ajouter un objet stock avec la taille et la quantité associée
       existingProduct.stock.push({
         size: product.size_fk,
-        quantity: product.quantity || 0 // S'assurer que quantity est défini même si elle est nulle
+        quantity: product.quantity || 0, // S'assurer que quantity est défini même si elle est nulle
       });
 
       return acc;
     }, []);
 
     // Supprimer les informations `size_fk` et `quantity` du produit principal
-    const cleanedProducts = formattedProducts.map(product => {
+    const cleanedProducts = formattedProducts.map((product) => {
       const { size_fk, quantity, ...productWithoutStock } = product;
       return productWithoutStock;
     });
@@ -237,14 +238,16 @@ exports.getStockProducts = async (req, res, client) => {
     res.status(200).json({ products: cleanedProducts });
   } catch (error) {
     console.error("Erreur lors de la récupération des produits", error);
-    res.status(500).json({ error: "Erreur lors de la récupération des produits" });
+    res
+      .status(500)
+      .json({ error: "Erreur lors de la récupération des produits" });
   }
 };
 
 exports.updateStockQuantity = async (req, res, client) => {
   try {
     const { productId, size_fk, quantity } = req.body;
-    console.log(req.body)
+    console.log(req.body);
 
     // Vérifier que tous les champs requis sont présents
     if (!productId || !size_fk || quantity === undefined) {
@@ -330,7 +333,7 @@ exports.getMenProducts = async (req, res, client) => {
         JOIN users ON products.creator_id = users.id
         WHERE products.gender_name IN ('Homme', 'Unisex')
       `,
-    };    
+    };
 
     const response = await client.query(query);
     const products = response.rows;
@@ -365,7 +368,7 @@ exports.getWomenProducts = async (req, res, client) => {
         JOIN users ON products.creator_id = users.id
         WHERE products.gender_name IN ('Femme', 'Unisex')
       `,
-    };    
+    };
 
     const response = await client.query(query);
     const products = response.rows;
@@ -400,7 +403,7 @@ exports.getUnisexProducts = async (req, res, client) => {
         JOIN users ON products.creator_id = users.id
         WHERE products.gender_name = 'Unisex'
       `,
-    };    
+    };
 
     const response = await client.query(query);
     const products = response.rows;
@@ -418,7 +421,7 @@ exports.updateProduct = async (req, res, client, supabase) => {
     const { product_id, name, description, gender_name, price, category_name } =
       req.body;
     let image_url = null;
-    console.log(gender_name)
+    console.log(gender_name);
     // Si une nouvelle image est téléchargée, l'uploader sur Supabase
     if (req.file) {
       const file = req.file;
@@ -595,7 +598,6 @@ exports.deleteProduct = async (req, res, client, supabase) => {
     });
   }
 };
-
 
 exports.sendConfirmationEmail = async (req, res) => {
   const { email } = req;
