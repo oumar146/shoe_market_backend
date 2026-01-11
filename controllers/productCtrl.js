@@ -61,9 +61,9 @@ exports.newProduct = async (req, res, next, client, supabase) => {
 
         image_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucketName}/${fileName}`;
       } catch (uploadError) {
-        console.error("Erreur upload image:", uploadError);
+        console.error("SUPABASE UPLOAD ERROR:", uploadError);
         return res.status(500).json({
-          error: "Échec de l'upload de l'image",
+          error: uploadError.message || uploadError,
         });
       }
     }
