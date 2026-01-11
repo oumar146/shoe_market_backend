@@ -40,8 +40,8 @@ const upload = multerLib({
 router.post(
   "/new",
   upload.any(), // 👈 accepte tous les champs fichiers
-  (req, res, next) => newProduct(req, res, next, client, supabase),
-  (req, res) => sendConfirmationEmail(req, res, client)
+  (req, res, next) => newProduct(req, res, next, client, supabase)
+  // ,(req, res) => sendConfirmationEmail(req, res, client)
 );
 
 router.delete(

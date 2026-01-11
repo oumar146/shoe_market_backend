@@ -128,7 +128,7 @@ exports.newProduct = async (req, res, next, client, supabase) => {
     req.product = productResult.rows[0];
     req.email = email;
 
-    next();
+    // next();
   } catch (error) {
     console.error("Erreur ajout produit:", error);
     res.status(500).json({ error: "Erreur lors de l'ajout du produit" });
