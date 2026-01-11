@@ -2,7 +2,8 @@ const nodemailer = require("nodemailer");
 const { v4: uuidv4 } = require("uuid");
 require("dotenv").config();
 
-exports.newProduct = async (req, res, next, client, supabase) => {
+
+exports.newProduct = async (req, res, client, supabase) => {
   try {
     const {
       name,
@@ -43,6 +44,10 @@ exports.newProduct = async (req, res, next, client, supabase) => {
       (req.files && req.files.length > 0 ? req.files[0] : null);
 
     if (file) {
+      if (!file.mimetype.startsWith("image/")) {
+        return res.status(400).json({ error: "Le fichier doit être une image" });
+      }
+
       try {
         const fileName = `${uuidv4()}-${file.originalname}`;
         const bucketName = "product-images";
@@ -55,9 +60,7 @@ exports.newProduct = async (req, res, next, client, supabase) => {
             contentType: file.mimetype,
           });
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         image_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucketName}/${fileName}`;
       } catch (uploadError) {
@@ -77,7 +80,6 @@ exports.newProduct = async (req, res, next, client, supabase) => {
     };
 
     const categoryResult = await client.query(categoryQuery);
-
     if (categoryResult.rowCount === 0) {
       return res.status(404).json({ error: "Category not found" });
     }
@@ -123,12 +125,24 @@ exports.newProduct = async (req, res, next, client, supabase) => {
     }
 
     /* ============================
-       EMAIL + NEXT
+       RÉPONSE AU FRONT
     ============================ */
-    req.product = productResult.rows[0];
-    req.email = email;
+    res.status(201).json({
+      success: true,
+      product: productResult.rows[0],
+    });
 
-    // next();
+    /* ============================
+       EMAIL EN ARRIÈRE-PLAN (OPTIONNEL)
+    ============================ */
+    /*
+    sendConfirmationEmail(
+      { product: productResult.rows[0], email },
+      null,
+      client
+    ).catch(err => console.error("EMAIL ERROR:", err));
+    */
+
   } catch (error) {
     console.error("Erreur ajout produit:", error);
     res.status(500).json({ error: "Erreur lors de l'ajout du produit" });
