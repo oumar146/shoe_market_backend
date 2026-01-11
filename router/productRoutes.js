@@ -27,14 +27,21 @@ const multer = require("../middleware/multer-config");
 // Middleware pour renouveler le token d'authentification si nécessaire
 
 const client = require("../dataBase");
+const multerLib = require("multer");
+
+const storage = multerLib.memoryStorage();
+
+const upload = multerLib({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB (optionnel)
+});
 
 // Routes pour les produits
 router.post(
   "/new",
-  // auth,
-  multer, // Gère le téléchargement de fichiers
-  (req, res, next) => newProduct(req, res, next, client, supabase), // Créer un nouveau produit
-  (req, res) => sendConfirmationEmail(req, res, client) // Envoyer un email de confirmation après la création
+  upload.any(), // 👈 accepte tous les champs fichiers
+  (req, res, next) => newProduct(req, res, next, client, supabase),
+  (req, res) => sendConfirmationEmail(req, res, client)
 );
 
 router.delete(

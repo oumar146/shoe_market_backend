@@ -13,68 +13,94 @@ exports.newProduct = async (req, res, next, client, supabase) => {
       creator_id,
       category_name,
       email,
-      sizes, // Liste des tailles à insérer
     } = req.body;
 
-    console.log(req.body);
+    console.log("BODY:", req.body);
+    console.log("FILES:", req.files);
 
+    /* ============================
+       GESTION DES TAILLES (ROBUSTE)
+    ============================ */
+    let sizes = [];
+
+    if (req.body.sizes) {
+      try {
+        sizes = Array.isArray(req.body.sizes)
+          ? req.body.sizes
+          : JSON.parse(req.body.sizes);
+      } catch (e) {
+        sizes = [req.body.sizes];
+      }
+    }
+
+    /* ============================
+       GESTION DE L’IMAGE (ROBUSTE)
+    ============================ */
     let image_url = null;
 
-    // Upload de l'image sur Supabase
-    if (req.file) {
-      try {
-        const file = req.file;
+    const file =
+      req.file ||
+      (req.files && req.files.length > 0 ? req.files[0] : null);
 
-        // Générer un nom unique pour le fichier
+    if (file) {
+      try {
         const fileName = `${uuidv4()}-${file.originalname}`;
         const bucketName = "product-images";
 
-        // Uploader l'image
-        const { data, error } = await supabase.storage
+        const { error } = await supabase.storage
           .from(bucketName)
           .upload(fileName, file.buffer, {
             cacheControl: "3600",
             upsert: true,
+            contentType: file.mimetype,
           });
 
         if (error) {
-          throw new Error(
-            `Erreur lors de l'upload de l'image: ${error.message}`
-          );
+          throw error;
         }
 
-        // Générer l'URL publique
         image_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucketName}/${fileName}`;
       } catch (uploadError) {
-        console.error("Erreur lors de l'upload de l'image:", uploadError);
-        return res.status(500).json({ error: "Échec de l'upload de l'image" });
+        console.error("Erreur upload image:", uploadError);
+        return res.status(500).json({
+          error: "Échec de l'upload de l'image",
+        });
       }
     }
 
-    // Vérifier si la catégorie existe
+    /* ============================
+       VÉRIFICATION CATÉGORIE
+    ============================ */
     const categoryQuery = {
-      text: "SELECT * FROM categories WHERE name = $1",
+      text: "SELECT 1 FROM categories WHERE name = $1",
       values: [category_name],
     };
+
     const categoryResult = await client.query(categoryQuery);
 
     if (categoryResult.rowCount === 0) {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    // Générer une référence unique pour le produit avec UUID
+    /* ============================
+       INSERT PRODUIT
+    ============================ */
     const reference = uuidv4();
 
-    // Insérer un nouveau produit avec la référence
     const productQuery = {
-      text: "INSERT INTO products (name, description, creation_date, gender_name, price, creator_id, category_name, image_url, reference) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
+      text: `
+        INSERT INTO products 
+        (name, description, creation_date, gender_name, price, creator_id, category_name, image_url, reference)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        RETURNING *
+      `,
       values: [
         name,
         description,
         creation_date,
         gender_name,
         price,
-        creator_id, // Assurez-vous que creator_id est correctement récupéré
+        creator_id,
         category_name,
         image_url,
         reference,
@@ -84,33 +110,31 @@ exports.newProduct = async (req, res, next, client, supabase) => {
     const productResult = await client.query(productQuery);
     const productId = productResult.rows[0].id;
 
-    // Vérifier si des tailles sont spécifiées
-    if (sizes && sizes.length > 0) {
-      // Créer les requêtes pour insérer chaque taille pour ce produit
-      const insertStockQueries = sizes.map((size) => {
-        return {
-          text: "INSERT INTO stock (product_id, size_fk, quantity) VALUES ($1, $2, 0)",
-          values: [productId, size], // Utilisation de la taille directement comme valeur numérique
-        };
-      });
-
-      // Exécuter toutes les requêtes d'insertion des tailles
-      for (let query of insertStockQueries) {
-        await client.query(query);
+    /* ============================
+       INSERT STOCK / TAILLES
+    ============================ */
+    if (sizes.length > 0) {
+      for (const size of sizes) {
+        await client.query({
+          text: "INSERT INTO stock (product_id, size_fk, quantity) VALUES ($1,$2,0)",
+          values: [productId, size],
+        });
       }
     }
 
-    // Ajouter les informations nécessaires pour l'envoi de l'e-mail à destination de l'utilisateur
+    /* ============================
+       EMAIL + NEXT
+    ============================ */
     req.product = productResult.rows[0];
     req.email = email;
 
-    // Passer au middleware suivant
     next();
   } catch (error) {
-    console.error("Erreur lors de l'ajout du produit:", error);
+    console.error("Erreur ajout produit:", error);
     res.status(500).json({ error: "Erreur lors de l'ajout du produit" });
   }
 };
+
 
 exports.getMyProducts = async (req, res, client) => {
   try {
